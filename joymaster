@@ -1,0 +1,55 @@
+#!/usr/bin/python
+#
+# Copyright 2005, Ferry Boender <f DOT boender AT electricmonk DOT nl>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+import JoyMaster.Joystick
+import JoyMaster.KeySimulator
+import sys
+import time
+
+try:
+	joystick = JoyMaster.Joystick.Joystick("/dev/js0")
+except OSError, e:
+	sys.stderr.write("couldn't open joystick device\n")
+	sys.exit(1)
+
+trigger = JoyMaster.Joystick.Trigger(joystick)
+trigger.addTrigger("up", ["up"])
+trigger.addTrigger("down", ["down"])
+trigger.addTrigger("dt_left", ["1"])
+trigger.addTrigger("snes9x_save", ["5", "5"])
+trigger.addTrigger("snes9x_load", ["6", "6"])
+
+keysimulator = JoyMaster.KeySimulator.KeySimulator()
+
+while True:
+	triggers = trigger.getTriggered()
+
+	for name in triggers:
+		if name == "up":
+			keysimulator.sendString("[shift+Up]")
+		elif name == "down":
+			keysimulator.sendString("[shift+Down]")
+		elif name == "dt_left":
+			keysimulator.sendString("[control+mod1+1]")
+		elif name == "snes9x_save":
+			keysimulator.sendString("[F1]")
+		elif name == "snes9x_load":
+			keysimulator.sendString("[shift+F1]")
+		elif name == "minimize":
+			keysimulator.sendString("[mod4+j]")
+
