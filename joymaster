@@ -16,40 +16,88 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+import optparse
+import sys
+import logging
+
 import JoyMaster.Joystick
 import JoyMaster.KeySimulator
-import sys
-import time
 
-try:
+class Main:
+
+	def __init__(self, joydev):
+
+		self.log = logging.getLogger("joymaster.main")
+		self.__initJoystick(joydev)
+		self.__initKeySimulator()
+
+	def __initJoystick(self, joydev):
+		
+		self.log.debug("Using joystick device %s." % (joydev))
+
+		try:
+			self.joystick = JoyMaster.Joystick.Joystick(joydev)
+			self.joydev = joydev
+		except OSError, e:
+			sys.stderr.write("Couldn't open joystick device %s.\n" % (joydev) )
+			sys.exit(1)
+	
+	def __initKeySimulator(self):
+		
+		self.log.debug("Initializing key simulator.")
+		
+		keysimulator = JoyMaster.KeySimulator.KeySimulator()
+
+if __name__ == "__main__":
+
+	# Logging
+	logging.basicConfig()
+	log = logging.getLogger("joymaster")
+	log.setLevel(logging.WARN)
+
+	# Parse commandline options
+	parser = optparse.OptionParser()
+	parser.set_usage(sys.argv[0] + " [option]")
+
+	parser.add_option("-d", "--device", action="store", type="string", metavar="DEVICE", dest="joydev", help="Joystick device.", default="/dev/js0")
+	parser.add_option("-V", "--verbose", action="store_true",dest="verbose", help="Be verbose (show lots of output)", default=False)
+
+	(options, args) = parser.parse_args()
+
+	if options.verbose:
+		log.setLevel(logging.DEBUG)
+
+	Main(options.joydev)
+
+
+
+	#-----------------------------------------------------------------------
 	joystick = JoyMaster.Joystick.Joystick("/dev/js0")
-except OSError, e:
-	sys.stderr.write("couldn't open joystick device\n")
-	sys.exit(1)
+	trigger = JoyMaster.Joystick.Trigger(joystick)
+	trigger.addTrigger("snes9x_exit", ["5", "6"])
+	trigger.addTrigger("snes9x_save", ["5", "5"])
+	trigger.addTrigger("snes9x_load", ["6", "6"])
+	
+	keysimulator = JoyMaster.KeySimulator.KeySimulator()
+	
+	while True:
+		triggers = trigger.getTriggered()
+	
+		for name in triggers:
+			if name == "up":
+				keysimulator.sendString("[shift+Up]")
+			elif name == "down":
+				keysimulator.sendString("[shift+Down]")
+			elif name == "dt_left":
+				keysimulator.sendString("[control+mod1+1]")
+			elif name == "snes9x_exit":
+				keysimulator.sendString("[Escape][Escape]")
+			elif name == "snes9x_save":
+				keysimulator.sendString("[F1]")
+			elif name == "snes9x_load":
+				keysimulator.sendString("[shift+F1]")
+			elif name == "minimize":
+				keysimulator.sendString("[mod4+j]")
 
-trigger = JoyMaster.Joystick.Trigger(joystick)
-trigger.addTrigger("up", ["up"])
-trigger.addTrigger("down", ["down"])
-trigger.addTrigger("dt_left", ["1"])
-trigger.addTrigger("snes9x_save", ["5", "5"])
-trigger.addTrigger("snes9x_load", ["6", "6"])
 
-keysimulator = JoyMaster.KeySimulator.KeySimulator()
-
-while True:
-	triggers = trigger.getTriggered()
-
-	for name in triggers:
-		if name == "up":
-			keysimulator.sendString("[shift+Up]")
-		elif name == "down":
-			keysimulator.sendString("[shift+Down]")
-		elif name == "dt_left":
-			keysimulator.sendString("[control+mod1+1]")
-		elif name == "snes9x_save":
-			keysimulator.sendString("[F1]")
-		elif name == "snes9x_load":
-			keysimulator.sendString("[shift+F1]")
-		elif name == "minimize":
-			keysimulator.sendString("[mod4+j]")
 

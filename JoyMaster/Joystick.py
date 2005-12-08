@@ -43,7 +43,7 @@ JS_AXIS_RIGHT  = 0x02
 JS_AXIS_DOWN   = 0x03
 JS_AXIS_LEFT   = 0x04
 
-class _TriggerSequence:
+class TriggerSequence:
 	"""
 	This class represents a single joystick trigger. A joystick trigger
 	consists out of a name which uniquely identifies the trigger, and a
@@ -54,14 +54,14 @@ class _TriggerSequence:
 	"""
 	
 	name = ""          # Unique identifier for this trigger
-	_sequence = []     # Array of events that, if all matched, trigger this trigger
-	_running = False   # True if the trigger is currently (partly) matched
-	_runningPos = -1   # Current (next) position in the sequence where we need to match events
+	__sequence = []     # Array of events that, if all matched, trigger this trigger
+	__running = False   # True if the trigger is currently (partly) matched
+	__runningPos = -1   # Current (next) position in the sequence where we need to match events
 
 	def __init__(self, name, sequence):
 		
 		self.name = name
-		self._sequence = sequence
+		self.__sequence = sequence
 
 	def setRunning(self, running):
 		"""
@@ -69,11 +69,11 @@ class _TriggerSequence:
 		previous X joystick events matched with sequence[0:X].
 		"""
 
-		self._running = running
-		if self._running:
-			self._runningPos = 1
+		self.__running = running
+		if self.__running:
+			self.__runningPos = 1
 		else:
-			self._runningPos = -1
+			self.__runningPos = -1
 
 	def matchFirst(self, str):
 		
@@ -83,32 +83,32 @@ class _TriggerSequence:
 			return (False)
 
 	def matchNext(self, str):
-		match = self.matchPos(self._runningPos, str)
+		match = self.matchPos(self.__runningPos, str)
 		if match:
-			self._runningPos += 1
+			self.__runningPos += 1
 			return(True)
 		else:
 			return(False)
 
 	def matchPos(self, pos, str):
-		if self._sequence[pos] == str:
+		if self.__sequence[pos] == str:
 			return True
 		else:
 			return False
 
 	def matchComplete(self):
-		if self._runningPos == len(self._sequence):
+		if self.__runningPos == len(self.__sequence):
 			return(True)
 		else:
 			return(False)
 
 	def isRunning(self):
-		return(self._running)
+		return(self.__running)
 
 class Trigger:
 
-	triggers = []
-	triggered = []
+	__triggers = []
+	__triggered = []
 
 	def __init__(self, joystick):
 
@@ -116,31 +116,31 @@ class Trigger:
 
 	def addTrigger(self, name, sequence):
 		
-		ts = _TriggerSequence(name, sequence)
-		self.triggers.append(ts)
+		ts = TriggerSequence(name, sequence)
+		self.__triggers.append(ts)
 	
 	def dumpTriggers(self):
-		for ts in self.triggers:
+		for ts in self.__triggers:
 			print ts
 
 	def getTriggered(self):
-		self._readJSEvents()
-		triggered = self.triggered
-		self.triggered = []
+		self.__readJSEvents()
+		triggered = self.__triggered
+		self.__triggered = []
 		return(triggered)
 	
-	def _readJSEvents(self):
+	def __readJSEvents(self):
 		js_events = self.joystick.getEvents()
 
 		for js_event in js_events:
-			self._handleJSEvent(js_event)
+			self.__handleJSEvent(js_event)
 
-	def _handleJSEvent(self, js_event):
+	def __handleJSEvent(self, js_event):
 		
 		event_type, event_str = self.joystick.eventToString(js_event)
 		event_str = str(event_str)
 
-		for trigger in self.triggers:
+		for trigger in self.__triggers:
 			
 			if trigger.isRunning():
 				if not trigger.matchNext(event_str):
@@ -153,9 +153,9 @@ class Trigger:
 			if trigger.isRunning():
 				if trigger.matchComplete():
 					trigger.setRunning(False)
-					self.triggered.append(trigger.name)
+					self.__triggered.append(trigger.name)
 
-class _JSEvent:
+class JSEvent:
 	"""
 	Base abstract joystick event class
 	"""
@@ -163,7 +163,7 @@ class _JSEvent:
 	elapsed_time = 0  # Time (ms) between this and the last event
 	state = 0         # JS_EVENT_* (released, pressed)
 	
-class _JSEventButton(_JSEvent):
+class JSEventButton(JSEvent):
 	"""
 	Abstract joystick event for button events
 	"""
@@ -171,7 +171,7 @@ class _JSEventButton(_JSEvent):
 	type = JS_EVENT_BUTTON
 	button = 0
 	
-class _JSEventAxis(_JSEvent):
+class JSEventAxis(JSEvent):
 	"""
 	Abstract joystick event for axis events
 	"""
@@ -191,9 +191,9 @@ class Joystick:
 		self.skip_btn_release = skip_btn_release
 		self.skip_axis_center = skip_axis_center
 
-		self._openDevice(joystick_device)
+		self.__openDevice(joystick_device)
 	
-	def _openDevice(self, joystick_device):
+	def __openDevice(self, joystick_device):
 		"""
 		Try to open the joystick device and handle any device initialization
 		events.
@@ -204,7 +204,7 @@ class Joystick:
 		except OSError, e:
 			raise e
 
-		self._readEvents() # Handle (ignore) device initialization
+		self.__readEvents() # Handle (ignore) device initialization
 
 	def getEvents(self):
 		"""
@@ -212,13 +212,13 @@ class Joystick:
 		getEvents() was called.
 		"""
 
-		self._readEvents()
+		self.__readEvents()
 		events = self.events
-		self._flushEvents()
+		self.__flushEvents()
 
 		return(events)
 		
-	def _readEvents(self):
+	def __readEvents(self):
 		"""
 		Read and interpret joystick events by querying the kernel and then passing any
 		events (that are not initialization events) to _handleEvent().
@@ -227,31 +227,35 @@ class Joystick:
 		pendingEvents = True
 		
 		while pendingEvents:
-			r, w, e = select.select([self.joydev], [], [], 0)
+			select.select([self.joydev], [], [], None) # Wait for input (blocking)
 
-			if r:
-				x = os.read(self.joydev, 8) # FIXME: What's this 8 all about?
-				# See http://www.python.org/doc/2.0.1/lib/module-struct.html
-				event = struct.unpack('IhBB',x)
-				
-				time, value, type, number = event
+			x = os.read(self.joydev, 8)
+			# See http://www.python.org/doc/2.0.1/lib/module-struct.html
+			event = struct.unpack('IhBB',x)
+			
+			time, value, type, number = event
 
-				# Only handle _real_ events; ignore device initialization events
-				if type == JS_EVENT_BUTTON or type == JS_EVENT_AXIS:
-					self._handleEvent(time, value, type, number)
-			else:
+			# Only handle _real_ events; ignore device initialization events
+			if type == JS_EVENT_BUTTON or type == JS_EVENT_AXIS:
+				self.__handleEvent(time, value, type, number)
+
+			# Check for more output (non blocking). if more output is
+			# available, keep reading.
+			r, w, e = select.select([self.joydev], [], [], 0) 
+
+			if not r:
 				pendingEvents = False
 		
-	def _handleEvent(self, time, value, type, number):
+	def __handleEvent(self, time, value, type, number):
 
 		if type == JS_EVENT_BUTTON:
-			event = _JSEventButton()
+			event = JSEventButton()
 			event.button = number + 1
 			event.state = value # Pressed OR released
 
 		elif type == JS_EVENT_AXIS:
-			event = _JSEventAxis()
-			event.direction = self._axisGetDirection(number, value)
+			event = JSEventAxis()
+			event.direction = self.__axisGetDirection(number, value)
 			event.state = value 
 
 		event.time = time
@@ -261,9 +265,9 @@ class Joystick:
 		else:
 			event.elapsed_time = 0
 
-		self._storeEvent(event)
+		self.__storeEvent(event)
 
-	def _storeEvent(self, event):
+	def __storeEvent(self, event):
 		
 		if event.type == JS_EVENT_BUTTON:
 			if event.state == JS_EVENT_PRESSED or self.skip_btn_release == False:
@@ -292,7 +296,7 @@ class Joystick:
 				
 			return( ("axis", direction_string) )
 
-	def _axisGetDirection(self, number, value):
+	def __axisGetDirection(self, number, value):
 
 		direction = None
 
@@ -315,7 +319,7 @@ class Joystick:
 
 		return (direction)
 		
-	def _flushEvents(self):
+	def __flushEvents(self):
 
 		self.events = []
 		
