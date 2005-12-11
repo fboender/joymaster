@@ -45,6 +45,16 @@ class JMControlWindow:
 
 		return(False)
 		
+	def getEvents(self):
+		return(self.events)
+
+	def getEventByName(self, name):
+		for event in self.events:
+			if event.name == name:
+				return(event)
+
+		return(None)
+
 	def dump(self):
 		print ""
 		print "section: %s" % (self.section_name)
@@ -59,33 +69,81 @@ class JMEvent:
 	def __init__(self):
 		self.name = ""
 
-		self.joystick_event = ""
-		self.simulate_event = ""
+		self._joystick_event = ""
+		self._simulate_event = ""
 
 	def dump(self):
 		print "event %s" % (self.name)
-		print "\tjoystick_event: %s" % (self.joystick_event)
-		print "\tsimulate_event: %s" % (self.simulate_event)
+		print "\tjoystick_event: %s" % (self._joystick_event)
+		print "\tsimulate_event: %s" % (self._simulate_event)
 
+	def setJoystickEventFromString(self, string):
+		string = string.lower()
+		parts = string.split(",")
+
+		# Verify correctness of events
+		for part in parts:
+			if not (part in ("up","down","left","right") or part.isdigit()):
+				return(False)
+	
+		self._joystick_event = parts
+
+	def setSimulateEventFromString(self, string):
+		
+		# FIXME: Verify correctness of event by passing it to KeySimulator
+		self._simulate_event = string
+
+
+	def getJoystickEvent(self):
+		return(self._joystick_event)
+
+	def getSimulateEvent(self):
+		return(self._simulate_event)
+		
 class Main:
 
 	def __init__(self, joydev):
 
 		self.controlledWindows = []
+		self.currentControlledWindow = None
 
 		self.log = logging.getLogger("joymaster.main")
 		self.__initJoystick(joydev)
 		self.__initKeySimulator()
 		self.__initConfig()
 
+		prev_recv_info = None
 
 		while True:
 
 			recv_info = self.keysimulator.getReceiverInfo()
 
-			for controlledWindow in self.controlledWindows:
-				if controlledWindow.matchWindow(recv_info):
-					print controlledWindow.section_name
+			# If the window focus has changed check in the list of simulators
+			# if one of them matches the new window. If so, load that
+			# simulator's events.
+			if recv_info != prev_recv_info:
+				for controlledWindow in self.controlledWindows:
+					if controlledWindow.matchWindow(recv_info):
+						self.log.debug("Window focus changed. Replacing triggers.")
+						
+						self.currentControlledWindow = controlledWindow
+
+						events = controlledWindow.getEvents()
+
+						self.joystick_trigger.clearTriggers()
+						for event in events:
+							self.joystick_trigger.addTrigger(event.name, event.getJoystickEvent())
+
+				prev_recv_info = recv_info
+
+			triggered_events = self.joystick_trigger.getTriggered()
+
+			self.log.debug("Received events: %s" % (triggered_events))
+
+			for triggered_event in triggered_events:
+				if self.currentControlledWindow:
+					ev = self.currentControlledWindow.getEventByName(triggered_event)
+					self.keysimulator.sendString(ev.getSimulateEvent())
 
 	def __initJoystick(self, joydev):
 		
@@ -93,11 +151,16 @@ class Main:
 
 		try:
 			self.joystick = JoyMaster.Joystick.Joystick(joydev)
+			self.joystick_trigger = JoyMaster.Joystick.Trigger(self.joystick)
+
 			self.joydev = joydev
 		except OSError, e:
 			sys.stderr.write("Couldn't open joystick device %s.\n" % (joydev) )
 			sys.exit(1)
 	
+	def __initTrigger(self):
+		self._trigger = JoyMaster.Joystick.Trigger(joystick)
+		
 	def __initKeySimulator(self):
 		
 		self.log.debug("Initializing key simulator.")
@@ -128,12 +191,15 @@ class Main:
 						event = JMEvent()
 
 						event.name = item_key
-						event.joystick_event = joystick_event
-						event.simulate_event = simulate_event
+						event.setJoystickEventFromString(joystick_event)
+						event.setSimulateEventFromString(simulate_event)
 
 						cw.events.append(event)
 
+						self.log.debug("Added '%s' event to '%s' window controller." % (event.name, cw.section_name))
+
 				self.controlledWindows.append(cw)
+				self.log.debug("Added window controller '%s' to controlled windows." % (cw.section_name))
 			except:
 				sys.stderr.write("Invalid configuration section '%s'\n" % (section))
 

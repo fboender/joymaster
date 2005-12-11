@@ -118,6 +118,13 @@ class Trigger:
 		
 		ts = TriggerSequence(name, sequence)
 		self.__triggers.append(ts)
+
+	def clearTriggers(self):
+		"""
+		Remove all triggers.
+		"""
+
+		self.__triggers = []
 	
 	def dumpTriggers(self):
 		for ts in self.__triggers:
