@@ -16,20 +16,76 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-import optparse
 import sys
 import logging
+import optparse
+import os
+import ConfigParser 
+import time
 
 import JoyMaster.Joystick
 import JoyMaster.KeySimulator
+
+class JMControlWindow:
+	
+	def __init__(self):
+		self.section_name = ""
+		self.wm_class = ""
+		self.wm_name = ""
+
+		self.events = []
+
+	def matchWindow(self, win_info):
+		wm_class, wm_name = win_info
+
+		if self.wm_class != None and self.wm_class != "" and self.wm_class.lower() in wm_class.lower():
+			return(True)
+		if self.wm_name != None and self.wm_name != "" and self.wm_name.lower() in wm_name.lower():
+			return(True)
+
+		return(False)
+		
+	def dump(self):
+		print ""
+		print "section: %s" % (self.section_name)
+		print "wm_class: %s" % (self.wm_class)
+		print "wm_name: %s" % (self.wm_name)
+
+		for event in self.events:
+			event.dump()
+
+class JMEvent:
+	
+	def __init__(self):
+		self.name = ""
+
+		self.joystick_event = ""
+		self.simulate_event = ""
+
+	def dump(self):
+		print "event %s" % (self.name)
+		print "\tjoystick_event: %s" % (self.joystick_event)
+		print "\tsimulate_event: %s" % (self.simulate_event)
 
 class Main:
 
 	def __init__(self, joydev):
 
+		self.controlledWindows = []
+
 		self.log = logging.getLogger("joymaster.main")
 		self.__initJoystick(joydev)
 		self.__initKeySimulator()
+		self.__initConfig()
+
+
+		while True:
+
+			recv_info = self.keysimulator.getReceiverInfo()
+
+			for controlledWindow in self.controlledWindows:
+				if controlledWindow.matchWindow(recv_info):
+					print controlledWindow.section_name
 
 	def __initJoystick(self, joydev):
 		
@@ -46,7 +102,40 @@ class Main:
 		
 		self.log.debug("Initializing key simulator.")
 		
-		keysimulator = JoyMaster.KeySimulator.KeySimulator()
+		self.keysimulator = JoyMaster.KeySimulator.KeySimulator()
+
+	def __initConfig(self):
+		
+		config = ConfigParser.ConfigParser()
+		config.read(["joymaster.conf", os.path.expanduser("~/.joymaster.conf")])
+
+		for section in config.sections():
+			try:
+				cw = JMControlWindow()
+
+				cw.section_name = section
+
+				for item in config.items(section):
+					item_key, item_value = item
+
+					if item_key == "wm_class":
+						cw.wm_class = item_value
+					elif item_key == "wm_name":
+						cw.wm_name = item_value
+					else:
+						joystick_event, simulate_event = item_value.split(":")
+
+						event = JMEvent()
+
+						event.name = item_key
+						event.joystick_event = joystick_event
+						event.simulate_event = simulate_event
+
+						cw.events.append(event)
+
+				self.controlledWindows.append(cw)
+			except:
+				sys.stderr.write("Invalid configuration section '%s'\n" % (section))
 
 if __name__ == "__main__":
 
@@ -69,35 +158,33 @@ if __name__ == "__main__":
 
 	Main(options.joydev)
 
-
-
-	#-----------------------------------------------------------------------
-	joystick = JoyMaster.Joystick.Joystick("/dev/js0")
-	trigger = JoyMaster.Joystick.Trigger(joystick)
-	trigger.addTrigger("snes9x_exit", ["5", "6"])
-	trigger.addTrigger("snes9x_save", ["5", "5"])
-	trigger.addTrigger("snes9x_load", ["6", "6"])
-	
-	keysimulator = JoyMaster.KeySimulator.KeySimulator()
-	
-	while True:
-		triggers = trigger.getTriggered()
-	
-		for name in triggers:
-			if name == "up":
-				keysimulator.sendString("[shift+Up]")
-			elif name == "down":
-				keysimulator.sendString("[shift+Down]")
-			elif name == "dt_left":
-				keysimulator.sendString("[control+mod1+1]")
-			elif name == "snes9x_exit":
-				keysimulator.sendString("[Escape][Escape]")
-			elif name == "snes9x_save":
-				keysimulator.sendString("[F1]")
-			elif name == "snes9x_load":
-				keysimulator.sendString("[shift+F1]")
-			elif name == "minimize":
-				keysimulator.sendString("[mod4+j]")
+	##-----------------------------------------------------------------------
+	#joystick = JoyMaster.Joystick.Joystick("/dev/js0")
+	#trigger = JoyMaster.Joystick.Trigger(joystick)
+	#trigger.addTrigger("snes9x_exit", ["5", "6"])
+	#trigger.addTrigger("snes9x_save", ["5", "5"])
+	#trigger.addTrigger("snes9x_load", ["6", "6"])
+	#
+	#keysimulator = JoyMaster.KeySimulator.KeySimulator()
+	#
+	#while True:
+	#	triggers = trigger.getTriggered()
+	#
+	#	for name in triggers:
+	#		if name == "up":
+	#			keysimulator.sendString("[shift+Up]")
+	#		elif name == "down":
+	#			keysimulator.sendString("[shift+Down]")
+	#		elif name == "dt_left":
+	#			keysimulator.sendString("[control+mod1+1]")
+	#		elif name == "snes9x_exit":
+	#			keysimulator.sendString("[Escape][Escape]")
+	#		elif name == "snes9x_save":
+	#			keysimulator.sendString("[F1]")
+	#		elif name == "snes9x_load":
+	#			keysimulator.sendString("[shift+F1]")
+	#		elif name == "minimize":
+	#			keysimulator.sendString("[mod4+j]")
 
 
 

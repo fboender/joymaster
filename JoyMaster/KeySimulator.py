@@ -30,6 +30,15 @@ import Xlib.XK
 import time
 import re
 
+"""
+import Xlib.display
+import Xlib.X
+import Xlib.XK
+display = Xlib.display.Display()
+screen = display.screen()
+root = screen.root
+"""
+
 # Characters that need the Shift modifier
 # Stolen from crikey 
 # Copyright 2003 by Akkana Peck, http://www.shallowsky.com/software/
@@ -43,13 +52,16 @@ _shift_chars = [
 class KeySimulator:
 
 	def __init__(self):
+		self._updateReceiverWindow()
+		self._buildStringToKeysymMap()
+
+	def _updateReceiverWindow(self):
 		self.display = Xlib.display.Display()
 		self.screen = self.display.screen()
 		self.root = self.screen.root
 		self.window = self._getFocusedWindow()
 
-		self._buildStringToKeysymMap()
-
+		
 	def sendString(self, string):
 		self.window = self._getFocusedWindow()
 
@@ -60,6 +72,28 @@ class KeySimulator:
 	def sendKey(self, key):
 		# FIXME: Not implemented
 		pass
+
+
+	def getReceiverInfo(self):
+		"""
+		Return a list with the window class and name information for the window
+		that will receive the simulated keypresses.
+		"""
+
+		self._updateReceiverWindow()
+
+		wm_class = self.window.get_wm_class()
+		wm_name = self.window.get_wm_name()
+
+		if wm_class:
+			wm_class = ".".join(wm_class)
+		else:
+			wm_class = ""
+
+		if not wm_name:
+			wm_name = ""
+
+		return( (wm_class, wm_name) )
 
 	def _sendEvents(self, window, events):
 
