@@ -24,7 +24,6 @@ import Xlib.display
 import Xlib.X
 import Xlib.XK
 import time
-import re
 
 class XEventSimulator:
 	"""
