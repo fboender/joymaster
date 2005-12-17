@@ -185,6 +185,9 @@ class XEventSimulator:
 		NOTE: Currently, only key events are implemented.
 		"""
 
+		if not isinstance(string, str):
+			raise TypeError("Expected a string.")
+
 		state = 0
 		keycode = 0
 
@@ -235,6 +238,9 @@ class XEventSimulator:
 		recognised as an X modifier or key. Otherwise, returns an list of
 		Xlib.protocol.event.KeyPress instances
 		"""
+
+		if not isinstance(strings, list) and not isinstance(strings, tuple):
+			raise TypeError("Expected a list or tuple.")
 
 		events = []
 
