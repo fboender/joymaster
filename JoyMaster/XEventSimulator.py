@@ -47,8 +47,8 @@ class XEventSimulator:
 
 	def __init__(self, display, window = None):
 
+		self.__window = None
 		self.__event_seqs = {}
-
 		self.__setDisplay(display)
 
 		if window:
@@ -63,7 +63,7 @@ class XEventSimulator:
 		if not isinstance(display, Xlib.display.Display):
 			raise TypeError("Expected an Xlib.display.Display instance")
 		
-		self.__display = Xlib.display.Display()
+		self.__display = display
 		
 	def setWindow(self, window):
 		"""
@@ -129,6 +129,9 @@ class XEventSimulator:
 		"""
 		Send the event identified by 'name' to the window.
 		"""
+
+		if not self.__window:
+			raise AttributeError("No window has been set.")
 
 		event_seq = self.__event_seqs[name]
 
