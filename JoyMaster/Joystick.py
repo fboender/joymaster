@@ -16,6 +16,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+"""
+Joystick provides easy access to joystick events.
+"""
+
 import select
 import os
 import struct
@@ -225,10 +229,20 @@ class Joystick:
 
 		return(events)
 		
+	def hasEvents(self, waitTime = 0):
+		
+		r, w, e = select.select([self.joydev], [], [], waitTime)
+
+		if r:
+			return(True)
+		else:
+			return(False)
+
 	def __readEvents(self):
 		"""
 		Read and interpret joystick events by querying the kernel and then passing any
-		events (that are not initialization events) to _handleEvent().
+		events (that are not initialization events) to _handleEvent(). This method
+		will block if no joystick events are available and wait until they do.
 		"""
 
 		pendingEvents = True
