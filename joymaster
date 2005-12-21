@@ -16,6 +16,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+# 
+# Todo:
+#  * Let user pick a window to controll.
+#  * Let user set the display to connect to.
+#
+
 import sys
 import logging
 import optparse
@@ -23,11 +29,21 @@ import os
 import ConfigParser 
 import time
 
-import JoyMaster.Joystick
-import JoyMaster.KeySimulator
+try:
+	import Xlib.display
+except ImportError, e:
+	sys.stderr.write("Couldn't import Python Xlib module. Aborting.\n")
+	sys.exit(1)
+
+try:
+	import JoyMaster.Joystick
+	import JoyMaster.XEventSimulator
+except ImportError, e:
+	sys.stderr.write("Couldn't import JoyMaster modules. Please check your installation. Aborting.\n")
+	sys.exit(1)
 
 class JMControlWindow:
-	
+
 	def __init__(self):
 		self.section_name = ""
 		self.wm_class = ""
@@ -70,7 +86,7 @@ class JMEvent:
 		self.name = ""
 
 		self._joystick_event = ""
-		self._simulate_event = ""
+		self._simulate_event = []
 
 	def dump(self):
 		print "event %s" % (self.name)
@@ -91,8 +107,7 @@ class JMEvent:
 	def setSimulateEventFromString(self, string):
 		
 		# FIXME: Verify correctness of event by passing it to KeySimulator
-		self._simulate_event = string
-
+		self._simulate_event = string.split(",")
 
 	def getJoystickEvent(self):
 		return(self._joystick_event)
@@ -102,48 +117,35 @@ class JMEvent:
 		
 class Main:
 
-	def __init__(self, joydev):
+	def __init__(self, joydev, configfile):
 
 		self.controlledWindows = []
 		self.currentControlledWindow = None
 
 		self.log = logging.getLogger("joymaster.main")
+		self.__initDisplay(None)
 		self.__initJoystick(joydev)
 		self.__initKeySimulator()
-		self.__initConfig()
-
-		prev_recv_info = None
+		self.__initConfig(configfile)
+		self.__initWindow()
 
 		while True:
+			
+			window = self.__display.get_input_focus().focus
+			if window != self.__window:
+				self.__initWindow()
+				self.log.debug("Window changed.")
 
-			recv_info = self.keysimulator.getReceiverInfo()
+			if self.joystick.hasEvents(1):
+				triggered_events = self.joystick_trigger.getTriggered()
 
-			# If the window focus has changed check in the list of simulators
-			# if one of them matches the new window. If so, load that
-			# simulator's events.
-			if recv_info != prev_recv_info:
-				for controlledWindow in self.controlledWindows:
-					if controlledWindow.matchWindow(recv_info):
-						self.log.debug("Window focus changed. Replacing triggers.")
-						
-						self.currentControlledWindow = controlledWindow
+				self.log.debug("Received events: %s" % (triggered_events))
 
-						events = controlledWindow.getEvents()
-
-						self.joystick_trigger.clearTriggers()
-						for event in events:
-							self.joystick_trigger.addTrigger(event.name, event.getJoystickEvent())
-
-				prev_recv_info = recv_info
-
-			triggered_events = self.joystick_trigger.getTriggered()
-
-			self.log.debug("Received events: %s" % (triggered_events))
-
-			for triggered_event in triggered_events:
-				if self.currentControlledWindow:
-					ev = self.currentControlledWindow.getEventByName(triggered_event)
-					self.keysimulator.sendString(ev.getSimulateEvent())
+				for triggered_event in triggered_events:
+					if self.__currentControlledWindow:
+						ev = self.__currentControlledWindow.getEventByName(triggered_event)
+						self.log.debug("Sending simulated event '%s' ( to window ''" % (triggered_event))
+						self.keysimulator.sendEventSequence(ev.name)
 
 	def __initJoystick(self, joydev):
 		
@@ -158,19 +160,65 @@ class Main:
 			sys.stderr.write("Couldn't open joystick device %s.\n" % (joydev) )
 			sys.exit(1)
 	
-	def __initTrigger(self):
-		self._trigger = JoyMaster.Joystick.Trigger(joystick)
+	def __initDisplay(self, display = None):
+	
+		self.log.debug("Connecting to X display '%s'." % display)
+
+		self.__display = Xlib.display.Display(display)
 		
+	def __initWindow(self, controlledWindow = None):
+		
+		if controlledWindow:
+			# Find the X window matching controlledWindow and start controlling it
+			raise NotImplementedError()
+			pass
+		else:
+			# Use the currently focussed X window and see if we should control it.
+			self.log.debug("Running in 'foccused' mode.")
+			window = self.__display.get_input_focus().focus
+			self.__window = window
+			window_wm_class = ".".join(window.get_wm_class())
+			window_wm_name = window.get_wm_name()
+
+			self.keysimulator.setWindow(window)
+
+			for controlledWindow in self.controlledWindows:
+				if controlledWindow.matchWindow([window_wm_class, window_wm_name]):
+					self.log.debug("Controlling window '%s' with name '%s'" % (window_wm_class, window_wm_name))
+					self.__currentControlledWindow = controlledWindow
+
+		if self.__currentControlledWindow:
+			self.keysimulator.delEventSequences()
+			events = self.__currentControlledWindow.getEvents()
+			for event in events:
+				x_events = self.keysimulator.stringsToXEvents(event.getSimulateEvent())
+				self.keysimulator.addEventSequence(event.name, x_events)
+				self.joystick_trigger.addTrigger(event.name, event.getJoystickEvent())
+		else:
+			self.log.debug("No valid window found to control.")
+
 	def __initKeySimulator(self):
 		
-		self.log.debug("Initializing key simulator.")
+		self.log.debug("Initializing X event simulator.")
 		
-		self.keysimulator = JoyMaster.KeySimulator.KeySimulator()
+		self.keysimulator = JoyMaster.XEventSimulator.XEventSimulator(self.__display)
 
-	def __initConfig(self):
+	def __initConfig(self, configfile = ""):
 		
+		try_configs = [
+			configfile, 
+			"joymaster.conf", 
+			os.path.expanduser("~/.joymaster.conf")
+		]
+
+		self.log.debug("Trying to find configuration using: %s" % (try_configs));
+
 		config = ConfigParser.ConfigParser()
-		config.read(["joymaster.conf", os.path.expanduser("~/.joymaster.conf")])
+		config.read(try_configs)
+
+		if len(config.sections()) == 0:
+			sys.stderr.write("No usable configs found or all configs are empty. Exiting.\n")
+			sys.exit(1)
 
 		for section in config.sections():
 			try:
@@ -205,52 +253,27 @@ class Main:
 
 if __name__ == "__main__":
 
-	# Logging
-	logging.basicConfig()
-	log = logging.getLogger("joymaster")
-	log.setLevel(logging.WARN)
+	try:
+		# Logging
+		logging.basicConfig()
+		log = logging.getLogger("joymaster")
+		log.setLevel(logging.WARN)
 
-	# Parse commandline options
-	parser = optparse.OptionParser()
-	parser.set_usage(sys.argv[0] + " [option]")
+		# Parse commandline options
+		parser = optparse.OptionParser()
+		parser.set_usage(sys.argv[0] + " [option]")
 
-	parser.add_option("-d", "--device", action="store", type="string", metavar="DEVICE", dest="joydev", help="Joystick device.", default="/dev/js0")
-	parser.add_option("-V", "--verbose", action="store_true",dest="verbose", help="Be verbose (show lots of output)", default=False)
+		parser.add_option("-c", "--config", action="store", type="string", metavar="PATH", dest="configfile", help="Config file to use.", default="")
+		parser.add_option("-d", "--device", action="store", type="string", metavar="DEVICE", dest="joydev", help="Joystick device.", default="/dev/js0")
+		parser.add_option("-V", "--verbose", action="store_true",dest="verbose", help="Be verbose (show lots of output)", default=False)
 
-	(options, args) = parser.parse_args()
+		(options, args) = parser.parse_args()
 
-	if options.verbose:
-		log.setLevel(logging.DEBUG)
+		if options.verbose:
+			log.setLevel(logging.DEBUG)
 
-	Main(options.joydev)
-
-	##-----------------------------------------------------------------------
-	#joystick = JoyMaster.Joystick.Joystick("/dev/js0")
-	#trigger = JoyMaster.Joystick.Trigger(joystick)
-	#trigger.addTrigger("snes9x_exit", ["5", "6"])
-	#trigger.addTrigger("snes9x_save", ["5", "5"])
-	#trigger.addTrigger("snes9x_load", ["6", "6"])
-	#
-	#keysimulator = JoyMaster.KeySimulator.KeySimulator()
-	#
-	#while True:
-	#	triggers = trigger.getTriggered()
-	#
-	#	for name in triggers:
-	#		if name == "up":
-	#			keysimulator.sendString("[shift+Up]")
-	#		elif name == "down":
-	#			keysimulator.sendString("[shift+Down]")
-	#		elif name == "dt_left":
-	#			keysimulator.sendString("[control+mod1+1]")
-	#		elif name == "snes9x_exit":
-	#			keysimulator.sendString("[Escape][Escape]")
-	#		elif name == "snes9x_save":
-	#			keysimulator.sendString("[F1]")
-	#		elif name == "snes9x_load":
-	#			keysimulator.sendString("[shift+F1]")
-	#		elif name == "minimize":
-	#			keysimulator.sendString("[mod4+j]")
-
-
+		Main(options.joydev, options.configfile)
+	except KeyboardInterrupt, e:
+		log.debug("Received keyboard interrupt. Shutting down")
+		sys.exit(0)
 
