@@ -1,0 +1,117 @@
+                                                              ___
+                                                            ,"---".
+                                                            :     ;
+                                                             `-.-'
+       _                                 _                    | |
+      | | ___  _   _ _ __ ___   __ _ ___| |_ ___ _ __         | |
+   _  | |/ _ \| | | | '_ ` _ \ / _` / __| __/ _ \ '__|        | |
+  | |_| | (_) | |_| | | | | | | (_| \__ \ ||  __/ |        _.-\_/-._
+   \___/ \___/ \__, |_| |_| |_|\__,_|___/\__\___|_|     _ / |     | \ _
+               |___/                                   / /   `---'   \ \
+                                                      /  `-----------'  \
+                                                     /,-""-.       ,-""-.\
+                                                    ( i-..-i       i-..-i )
+                                                    |`|    |-------|    |'|
+                                                    \ `-..-'  ,=.  `-..-'/
+                                                     `--------|=|-------'
+                                                              | |
+                                                              \ \
+                                                               ) ) hjw
+                                                              / /
+                                                             ( (
+                         
+
+
+About
+-----------------------------------------------------------------------------
+
+	Joymaster lets you control (X) windows using your joystick. Other programs
+	like this already exist, but Joymaster takes a different approach. 
+
+	First of all, it watches the currently focussed window to see which buttons
+	should perform what actions. This means you can have joystick controls
+	perform different events per window. Secondly, it supports macro's both on
+	the joystick and for controlling windows. For instance, tapping the 'Up'
+	button on your joystick three times can result in an event sequence on a
+	window that loads, changes and saves your document and then exits the
+	application.
+
+	I am personally using it to load and save games under various emulators as
+	well as quiting emulators and then controlling a running Midnight Commander
+	to select a different game to play. I also use it to lauch, watch and pause
+	movies using Totem. As you can tell, I'm quite the couch-potato.
+
+
+	PLEASE NOTE THAT THIS IS A PRE-RELEASE AND IS THEREFOR A LITTLE ROUGH
+	AROUND THE EDGES. SUBSEQUENT VERSIONS WILL HAVE BETTER DOCUMENTATION,
+	BUGFIXES, ETC. 
+
+
+Installation
+-----------------------------------------------------------------------------
+
+	Requirements
+	-------------------------------------------------------------------------
+
+	Joymaster requires:
+
+	* Python 2.3+
+	* Python-Xlib
+
+		Debian: python2.X-xlib
+		Source: http://python-xlib.sourceforge.net/
+
+	
+	Installation
+	-------------------------------------------------------------------------
+
+	THIS SECTION NEEDS WORK
+
+
+Configuration
+-----------------------------------------------------------------------------
+
+	THIS SECTION NEEDS WORK
+
+	Quick guide:
+
+	See joymaster.conf for some examples. A single section in the config (
+	[blah]... ) controls a single window. 
+
+	wm_name=XXXX will be checked against the window name (in the title bar) and if XXXX is in the window name, it will control that window.
+	wm_class=XXXX will be checked against the window class (use xwinnfo) and if XXXX is in the window class, it will control that window.
+
+	All other section options are events that will be simulated. 
+
+	[name]=[joystick event[,joystick event]]:[simulated event[,simulated event]]
+
+	Joystick event:
+		up
+		down
+		left
+		right
+		1 - X (where X is the number of buttons your joystick has)
+
+	Simulated event:
+		[modifier+]key
+
+		Modifiers (case sensitive):
+			shift
+			control
+			lock
+			mod1
+			mod2 (usually alt)
+			mod3
+			mod4
+			mod5
+
+			CASE SENSITIVE
+
+		key (case sensitive):
+			a-z
+			A-Z
+			0-9
+			
+			See /usr/include/X11/keysymdef.h for more keys. (Remove XK_ part for actual key)
+			
+			If you want to send keys like '{' or '!' you must send 'shift+[' or 'shift+1'
