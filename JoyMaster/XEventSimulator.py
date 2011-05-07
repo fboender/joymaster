@@ -148,15 +148,15 @@ class XEventSimulator:
 		window = input_focus.focus
 		if window == None:
 			return(None)
-		
+
 		return(window);
 
 	def stringToXEvent(self, string):
 		"""
-		Convert a string representation of an X event to a real X event. 
+		Convert a string representation of an X event to a real X event.
 
 		String format is :  "[modifier+[modifier+]...]key"
-		
+
 		Possible modifiers are:
 			shift
 			control

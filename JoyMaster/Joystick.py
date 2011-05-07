@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2005, Ferry Boender <f DOT boender AT electricmonk DOT nl>
+# Copyright 2005-2010, Ferry Boender <ferry DOT boender AT electricmonk DOT nl>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
