@@ -26,7 +26,7 @@ import sys
 import logging
 import optparse
 import os
-import ConfigParser 
+import ConfigParser
 import time
 
 try:
@@ -43,12 +43,10 @@ except ImportError, e:
 	sys.exit(1)
 
 class JMControlWindow:
-
 	def __init__(self):
 		self.section_name = ""
 		self.wm_class = ""
 		self.wm_name = ""
-
 		self.events = []
 
 	def matchWindow(self, win_info):
@@ -60,7 +58,7 @@ class JMControlWindow:
 			return(True)
 
 		return(False)
-		
+
 	def getEvents(self):
 		return(self.events)
 
@@ -81,7 +79,6 @@ class JMControlWindow:
 			event.dump()
 
 class JMEvent:
-	
 	def __init__(self):
 		self.name = ""
 
@@ -101,11 +98,10 @@ class JMEvent:
 		for part in parts:
 			if not (part in ("up","down","left","right") or part.isdigit()):
 				return(False)
-	
+
 		self._joystick_event = parts
 
 	def setSimulateEventFromString(self, string):
-		
 		# FIXME: Verify correctness of event by passing it to KeySimulator
 		self._simulate_event = string.split(",")
 
@@ -114,11 +110,9 @@ class JMEvent:
 
 	def getSimulateEvent(self):
 		return(self._simulate_event)
-		
+
 class Main:
-
 	def __init__(self, joydev, configfile):
-
 		self.controlledWindows = []
 		self.currentControlledWindow = None
 
@@ -130,7 +124,6 @@ class Main:
 		self.__initWindow()
 
 		while True:
-			
 			window = self.__display.get_input_focus().focus
 			if window != self.__window:
 				self.__initWindow()
@@ -138,17 +131,15 @@ class Main:
 
 			if self.joystick.hasEvents(1):
 				triggered_events = self.joystick_trigger.getTriggered()
-
 				self.log.debug("Received events: %s" % (triggered_events))
 
 				for triggered_event in triggered_events:
 					if self.__currentControlledWindow:
 						ev = self.__currentControlledWindow.getEventByName(triggered_event)
-						self.log.debug("Sending simulated event '%s' ( to window ''" % (triggered_event))
+						self.log.debug("Sending simulated event '%s' to window '%s'" % (triggered_event, window))
 						self.keysimulator.sendEventSequence(ev.name)
 
 	def __initJoystick(self, joydev):
-		
 		self.log.debug("Using joystick device %s." % (joydev))
 
 		try:
@@ -159,27 +150,27 @@ class Main:
 		except OSError, e:
 			sys.stderr.write("Couldn't open joystick device %s.\n" % (joydev) )
 			sys.exit(1)
-	
-	def __initDisplay(self, display = None):
-	
-		self.log.debug("Connecting to X display '%s'." % display)
 
+	def __initDisplay(self, display = None):
+		self.log.debug("Connecting to X display '%s'." % display)
 		self.__display = Xlib.display.Display(display)
-		
+
 	def __initWindow(self, controlledWindow = None):
-		
 		if controlledWindow:
 			# Find the X window matching controlledWindow and start controlling it
 			raise NotImplementedError()
-			pass
 		else:
 			# Use the currently focussed X window and see if we should control it.
 			self.log.debug("Running in 'foccused' mode.")
 			window = self.__display.get_input_focus().focus
 			self.__window = window
-			window_wm_class = ".".join(window.get_wm_class())
+			try:
+				window_wm_class = ".".join(window.get_wm_class())
+			except TypeError:
+				self.log.debug("Couldn't get the focused window's VM class")
+				window_wm_class = ''
 			window_wm_name = window.get_wm_name()
-
+			print window_wm_name
 			self.keysimulator.setWindow(window)
 
 			for controlledWindow in self.controlledWindows:
@@ -198,16 +189,13 @@ class Main:
 			self.log.debug("No valid window found to control.")
 
 	def __initKeySimulator(self):
-		
 		self.log.debug("Initializing X event simulator.")
-		
 		self.keysimulator = JoyMaster.XEventSimulator.XEventSimulator(self.__display)
 
 	def __initConfig(self, configfile = ""):
-		
 		try_configs = [
-			configfile, 
-			"joymaster.conf", 
+			configfile,
+			"joymaster.conf",
 			os.path.expanduser("~/.joymaster.conf")
 		]
 
@@ -223,7 +211,6 @@ class Main:
 		for section in config.sections():
 			try:
 				cw = JMControlWindow()
-
 				cw.section_name = section
 
 				for item in config.items(section):
@@ -235,15 +222,11 @@ class Main:
 						cw.wm_name = item_value
 					else:
 						joystick_event, simulate_event = item_value.split(":")
-
 						event = JMEvent()
-
 						event.name = item_key
 						event.setJoystickEventFromString(joystick_event)
 						event.setSimulateEventFromString(simulate_event)
-
 						cw.events.append(event)
-
 						self.log.debug("Added '%s' event to '%s' window controller." % (event.name, cw.section_name))
 
 				self.controlledWindows.append(cw)
@@ -252,7 +235,6 @@ class Main:
 				sys.stderr.write("Invalid configuration section '%s'\n" % (section))
 
 if __name__ == "__main__":
-
 	try:
 		# Logging
 		logging.basicConfig()
@@ -276,4 +258,3 @@ if __name__ == "__main__":
 	except KeyboardInterrupt, e:
 		log.debug("Received keyboard interrupt. Shutting down")
 		sys.exit(0)
-

@@ -24,6 +24,7 @@ import Xlib.display
 import Xlib.X
 import Xlib.XK
 import time
+import logging
 
 class XEventSimulator:
 	"""
@@ -44,9 +45,8 @@ class XEventSimulator:
 
 	xevsim.sendEventSequence("xev_1")
 	"""
-
 	def __init__(self, display, window = None):
-
+		self.log = logging.getLogger('joymaster.XEventSimulator')
 		self.__window = None
 		self.__event_seqs = {}
 		self.__setDisplay(display)
@@ -59,19 +59,17 @@ class XEventSimulator:
 		Set the display to work with. Calling this function invalidates any
 		currently set self.__window and, in effect, any events.
 		"""
-
 		if not isinstance(display, Xlib.display.Display):
 			raise TypeError("Expected an Xlib.display.Display instance")
-		
+
 		self.__display = display
-		
+
 	def setWindow(self, window):
 		"""
 		Set the window (of XAtom Window type) which will receive the events.
 		Window must be gotten from the same display as given on object
 		instantiation.
 		"""
-		
 		if not isinstance(window, Xlib.xobject.drawable.Window):
 			raise TypeError("Expected an Xlib.xobject.drawable.Window instance")
 
@@ -81,24 +79,21 @@ class XEventSimulator:
 		"""
 		Return the used display.
 		"""
-
 		return(self.__display)
 
 	def getWindow(self):
 		"""
 		Return the window (of type XAtom Window) which will receive the events.
 		"""
-
 		return(self.__window)
 
 	def addEventSequence(self, name, event_seq):
 		"""
 		Add an name->event sequence which can be sent to the window.
 
-		name is a string which uniquely identifies the sequence. 
+		name is a string which uniquely identifies the sequence.
 		event_seq is an list of Xlib.protocol.event.* instances.
 		"""
-
 		if not isinstance(event_seq, list):
 			raise TypeError("Expected a list of Xlib.protocol.event.* instances")
 
@@ -106,7 +101,6 @@ class XEventSimulator:
 		for event in event_seq:
 			if not isinstance(event, Xlib.protocol.event.KeyPress):
 				raise TypeError("Expected a list of Xlib.protocol.event.* instances")
-				
 		self.__event_seqs[name] = event_seq
 
 		return(True)
@@ -115,27 +109,25 @@ class XEventSimulator:
 		"""
 		Remove an name->event sequence.
 		"""
-		
 		self.__event_seqs.pop(name)
-		
+
 	def delEventSequences(self):
 		"""
 		Remove all name->event sequences.
 		"""
-
 		self.__event_seqs = {}
 
 	def sendEventSequence(self, name):
 		"""
 		Send the event identified by 'name' to the window.
 		"""
-
 		if not self.__window:
 			raise AttributeError("No window has been set.")
 
 		event_seq = self.__event_seqs[name]
 
 		for event in event_seq:
+			self.log.debug('Sending simulated event \'%s\' to window \'%s\'' % (event, self.__window))
 			self.__window.send_event(event, propagate = True)
 
 		self.__display.sync()
